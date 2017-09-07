@@ -12,60 +12,57 @@ fn decode(input: &str, symbols :String) -> String  {
     return input.to_owned();
 }
 
-#[derive(Debug)]
-struct TreeNode<V: Debug> {
-    value: Option<V>,
-    left: Option<Box<TreeNode<V>>>,
-    right: Option<Box<TreeNode<V>>>,
+#[derive(Debug, PartialEq, Eq)]
+enum TreeNode<V: Debug + Eq> {
+    Leaf(V),
+    Node(Box<TreeNode<V>>, Box<TreeNode<V>>),
 }
 
-impl <V: Debug> TreeNode<V> {
+impl <V: Debug + Eq> TreeNode<V> {
 
     pub fn value(self) -> Option<V> {
-        self.value 
+        match self {
+            TreeNode::Leaf(v) => Some(v),
+            TreeNode::Node(_,_) => None,
+        }
     }
     
     pub fn is_leaf(&self) -> bool {
-        self.value.is_some()
+        match self {
+            &TreeNode::Leaf(_) => true,
+            &TreeNode::Node(_,_) => false,
+        }
     }
 
     pub fn left(&self) -> Option<&TreeNode<V>> {
-       match self.left {
-           Some(ref l) => Some(l.deref()),
-           None => None,
-       }
+        match self {
+            &TreeNode::Leaf(_) => None,
+            &TreeNode::Node(ref l,_) => Some(l.deref()),
+        }
     }
 
     pub fn right(&self) -> Option<&TreeNode<V>> {
-       match self.right {
-           Some(ref r) => Some(r.deref()),
-           None => None,
-       }
+        match self {
+            &TreeNode::Leaf(_) => None,
+            &TreeNode::Node(_,ref r) => Some(r.deref()),
+        }
     }
 
     pub fn new_leaf(value: V) -> Self {
-        TreeNode {
-            value: Some(value),
-            left: None,
-            right: None,
-        }
+        TreeNode::Leaf(value)
     }
 
     pub fn new_node(left: Self, right: Self) -> Self {
-        TreeNode {
-            value: None,
-            left: Some(Box::new(left)),
-            right: Some(Box::new(right)),
-        }
+        TreeNode::Node(Box::new(left), Box::new(right))
     }
 }
 
 #[derive(Debug)]
-struct TreeBuilder<V: Debug, W: PartialOrd> { 
-    nodes: Vec<(TreeNode<V>, W)>
+struct TreeBuilder<V: Debug + Eq, W: PartialOrd> { 
+    nodes: Vec<(V, W)>
 }
 
-impl <V: Debug> TreeBuilder<V, u32> {
+impl <V: Debug + Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
     
     pub fn new() -> Self {
         TreeBuilder {
@@ -73,37 +70,51 @@ impl <V: Debug> TreeBuilder<V, u32> {
         }
     }
 
-    pub fn add(mut self, sym: V, weight: u32) -> Self {
-        self.nodes.push((TreeNode::new_leaf(sym), weight));
+    pub fn add(mut self, sym: V, weight: W) -> Self {
+        self.nodes.push((sym, weight));
         self
     }
 
     pub fn build(mut self) -> Option<TreeNode<V>> {
-        
-        // decending
-        self.nodes.sort_by(|a,b| b.1.cmp(&a.1));
+        use std::cmp::Ordering;
+
+        self.nodes.sort_by(|a, b| if b.1 > a.1 {
+            Ordering::Greater    
+        } else if b.1 < a.1 {
+            Ordering::Less    
+        } else {
+            Ordering::Equal    
+        });
+
+        let mut nodes: Vec<(TreeNode<V>, W)> = self.nodes.into_iter()
+            .map(|(v, w)| (TreeNode::new_leaf(v), w)).collect();
 
 
-        while self.nodes.len() > 1 {
-            println!("{:?}", self);
-            let (right_value, right_weight) = self.nodes.pop().unwrap();
-            let (left_value, left_weight) = self.nodes.pop().unwrap();
+        while nodes.len() > 1 {
+            let (right_value, right_weight) = nodes.pop().unwrap();
+            let (left_value, left_weight) = nodes.pop().unwrap();
             
             let new_weight = left_weight + right_weight;
 
             let node = TreeNode::new_node(left_value, right_value);
 
             let pos = {
-                match self.nodes.binary_search_by(|a| new_weight.cmp(&a.1)) {
+                match nodes.binary_search_by(|a| if new_weight > a.1 {
+                    Ordering::Greater    
+                } else if new_weight < a.1 {
+                    Ordering::Less    
+                } else {
+                    Ordering::Equal    
+                }) {
                     Ok(i) => i,
                     Err(i) => i,
                 }
             };
-            self.nodes.insert(pos, (node, new_weight));
+            nodes.insert(pos, (node, new_weight));
         }
 
        
-        match self.nodes.pop() {
+        match nodes.pop() {
             Some((val, _)) => Some(val),
             None => None,
         }
@@ -134,12 +145,17 @@ mod tests {
         let tree = TreeBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 2)
-            .add('c', 4)
             .add('d', 10)
-            .build();
-        
-        println!("{:?}", tree);
+            .build()
+            .unwrap();
 
-        panic!();
+        let expected = TreeNode::new_node(
+            TreeNode::new_leaf('d'),
+            TreeNode::new_node(
+                TreeNode::new_leaf('b'),
+                TreeNode::new_leaf('a')));
+
+        
+        assert_eq!(expected, tree);
     }
 }
