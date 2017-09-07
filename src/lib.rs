@@ -1,47 +1,48 @@
 use std::ops::{Deref, Add};
-use std::default::Default;
 use std::fmt::Debug;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 /// Encodes a given string with a given string
-fn encode(input: &str, symbols :String) -> String  {
+pub fn encode(input: &str, symbols :String) -> String  {
     return input.to_owned();
 }
 
 /// Decodes the given input with the given tree
-fn decode(input: &str, symbols :String) -> String  {
+pub fn decode(input: &str, symbols :String) -> String  {
     return input.to_owned();
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum TreeNode<V: Debug + Eq> {
+enum TreeNode<V: Eq> {
     Leaf(V),
     Node(Box<TreeNode<V>>, Box<TreeNode<V>>),
 }
 
-impl <V: Debug + Eq> TreeNode<V> {
+impl <V: Eq> TreeNode<V> {
 
-    pub fn value(self) -> Option<V> {
+    fn value<'a>(self) -> Option<V> {
         match self {
             TreeNode::Leaf(v) => Some(v),
             TreeNode::Node(_,_) => None,
         }
     }
     
-    pub fn is_leaf(&self) -> bool {
+    fn is_leaf(&self) -> bool {
         match self {
             &TreeNode::Leaf(_) => true,
             &TreeNode::Node(_,_) => false,
         }
     }
 
-    pub fn left(&self) -> Option<&TreeNode<V>> {
+    fn left(&self) -> Option<&TreeNode<V>> {
         match self {
             &TreeNode::Leaf(_) => None,
             &TreeNode::Node(ref l,_) => Some(l.deref()),
         }
     }
 
-    pub fn right(&self) -> Option<&TreeNode<V>> {
+    fn right(&self) -> Option<&TreeNode<V>> {
         match self {
             &TreeNode::Leaf(_) => None,
             &TreeNode::Node(_,ref r) => Some(r.deref()),
@@ -55,14 +56,45 @@ impl <V: Debug + Eq> TreeNode<V> {
     pub fn new_node(left: Self, right: Self) -> Self {
         TreeNode::Node(Box::new(left), Box::new(right))
     }
+
 }
 
-#[derive(Debug)]
-struct TreeBuilder<V: Debug + Eq, W: PartialOrd> { 
+impl <V: Eq + Hash> TreeNode<V> {
+
+    pub fn encoding(self) -> HashMap<V, Vec<bool>> {
+        let trail: Vec<bool> = vec![];
+        let mut map = HashMap::new();
+
+        self.build_map(trail, &mut map);
+
+        map
+    }
+
+    fn build_map(self, trail: Vec<bool>, map :&mut HashMap<V, Vec<bool>>) {
+        
+        match self {
+            TreeNode::Leaf(v) => {
+                map.insert(v, trail.clone());
+            },
+            TreeNode::Node(l, r) => {
+                //handle left
+                let mut left = trail.clone();
+                left.push(false);
+                l.build_map(left, map);
+                //handle right
+                let mut right = trail.clone();
+                right.push(true);
+                r.build_map(right, map);
+            },
+        }
+    }
+}
+
+struct TreeBuilder<V: Eq, W: PartialOrd> { 
     nodes: Vec<(V, W)>
 }
 
-impl <V: Debug + Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
+impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
     
     pub fn new() -> Self {
         TreeBuilder {
@@ -140,8 +172,7 @@ mod tests {
     }
     
     #[test]
-    fn build_tree() {
-        
+    fn build_simple_tree() {
         let tree = TreeBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 2)
@@ -157,5 +188,45 @@ mod tests {
 
         
         assert_eq!(expected, tree);
+    }
+
+    #[test]
+    fn build_flat_tree() {
+        let tree = TreeBuilder::<char, u32>::new()
+            .add('a', 1)
+            .add('b', 1)
+            .add('c', 1)
+            .add('d', 1)
+            .build()
+            .unwrap();
+
+        let expected = TreeNode::new_node(
+            TreeNode::new_node(
+                TreeNode::new_leaf('a'),
+                TreeNode::new_leaf('b')),
+            TreeNode::new_node(
+                TreeNode::new_leaf('c'),
+                TreeNode::new_leaf('d')));
+
+        assert_eq!(expected, tree);
+    }
+
+    #[test]
+    fn encoding_map() {
+        let tree = TreeBuilder::<char, u32>::new()
+            .add('a', 1)
+            .add('b', 1)
+            .add('c', 1)
+            .add('d', 1)
+            .build()
+            .unwrap();
+        
+        let mut expected = HashMap::new();
+        expected.insert('a', vec![false, false]);
+        expected.insert('b', vec![false, true]);
+        expected.insert('c', vec![true, false]);
+        expected.insert('d', vec![true, true]);
+
+        assert_eq!(expected, tree.encoding());
     }
 }
