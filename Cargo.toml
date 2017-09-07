@@ -1,0 +1,6 @@
+[package]
+name = "huff"
+version = "0.1.0"
+authors = ["David Barnett <david@barnett.net.nz>"]
+
+[dependencies]
