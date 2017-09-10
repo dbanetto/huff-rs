@@ -8,23 +8,23 @@ use std::ops::Add;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum HuffNode<V: Eq + Copy> {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum HuffTree<V: Eq + Copy> {
     Leaf(V),
-    Node(Box<HuffNode<V>>, Box<HuffNode<V>>),
+    Node(Box<HuffTree<V>>, Box<HuffTree<V>>),
 }
 
-impl<V: Eq + Copy> HuffNode<V> {
+impl<V: Eq + Copy> HuffTree<V> {
     pub fn new_leaf(value: V) -> Self {
-        HuffNode::Leaf(value)
+        HuffTree::Leaf(value)
     }
 
     pub fn new_node(left: Self, right: Self) -> Self {
-        HuffNode::Node(Box::new(left), Box::new(right))
+        HuffTree::Node(Box::new(left), Box::new(right))
     }
 }
 
-impl<V: Eq + Copy + Hash> HuffNode<V> {
+impl<V: Eq + Copy + Hash> HuffTree<V> {
     pub fn encoding(self) -> HashMap<V, Vec<bool>> {
         let trail: Vec<bool> = vec![];
         let mut map = HashMap::new();
@@ -36,10 +36,10 @@ impl<V: Eq + Copy + Hash> HuffNode<V> {
 
     fn build_map(self, trail: Vec<bool>, map: &mut HashMap<V, Vec<bool>>) {
         match self {
-            HuffNode::Leaf(v) => {
+            HuffTree::Leaf(v) => {
                 map.insert(v, trail.clone());
             }
-            HuffNode::Node(l, r) => {
+            HuffTree::Node(l, r) => {
 
                 //handle left
                 let mut left = trail.clone();
@@ -69,7 +69,7 @@ impl<V: Eq + Copy, W: PartialOrd + Add<Output = W>> HuffBuilder<V, W> {
         self
     }
 
-    pub fn build(mut self) -> Option<HuffNode<V>> {
+    pub fn build(mut self) -> Option<HuffTree<V>> {
         use std::cmp::Ordering;
 
         self.nodes.sort_by(|a, b| if b.1 > a.1 {
@@ -80,9 +80,9 @@ impl<V: Eq + Copy, W: PartialOrd + Add<Output = W>> HuffBuilder<V, W> {
             Ordering::Equal
         });
 
-        let mut nodes: Vec<(HuffNode<V>, W)> = self.nodes
+        let mut nodes: Vec<(HuffTree<V>, W)> = self.nodes
             .into_iter()
-            .map(|(v, w)| (HuffNode::new_leaf(v), w))
+            .map(|(v, w)| (HuffTree::new_leaf(v), w))
             .collect();
 
 
@@ -92,7 +92,7 @@ impl<V: Eq + Copy, W: PartialOrd + Add<Output = W>> HuffBuilder<V, W> {
 
             let new_weight = left_weight + right_weight;
 
-            let node = HuffNode::new_node(left_value, right_value);
+            let node = HuffTree::new_node(left_value, right_value);
 
             let pos = {
                 match nodes.binary_search_by(|a| if new_weight > a.1 {
@@ -135,7 +135,7 @@ pub struct HuffWriter<V: Eq + Copy + Hash, W: Write> {
 }
 
 impl<V: Eq + Copy + Hash, W: Write> HuffWriter<V, W> {
-    pub fn new(tree: HuffNode<V>, writer: W) -> Self {
+    pub fn new(tree: HuffTree<V>, writer: W) -> Self {
         HuffWriter {
             encoding: tree.encoding(),
             writer: BitWriter::new(writer),
@@ -159,12 +159,12 @@ impl<V: Eq + Copy + Hash, W: Write> HuffWriter<V, W> {
 }
 
 pub struct HuffReader<V: Eq + Copy, R: Read> {
-    tree: Box<HuffNode<V>>,
+    tree: Box<HuffTree<V>>,
     reader: BitReader<R, NoPadding>,
 }
 
 impl<V: Eq + Copy, R: Read> HuffReader<V, R> {
-    pub fn new(tree: HuffNode<V>, reader: R) -> Self {
+    pub fn new(tree: HuffTree<V>, reader: R) -> Self {
         HuffReader {
             tree: Box::new(tree),
             reader: BitReader::new(reader),
@@ -177,8 +177,8 @@ impl<V: Eq + Copy, R: Read> HuffReader<V, R> {
 
         loop {
             match **cursor {
-                HuffNode::Leaf(ref value) => return Ok(*value),
-                HuffNode::Node(ref l, ref r) => {
+                HuffTree::Leaf(ref value) => return Ok(*value),
+                HuffTree::Node(ref l, ref r) => {
                     let bit = self.reader.read_bit()?;
                     match bit {
                         Some(b) => {
@@ -206,9 +206,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let expected = HuffNode::new_node(
-            HuffNode::new_leaf('d'),
-            HuffNode::new_node(HuffNode::new_leaf('b'), HuffNode::new_leaf('a')),
+        let expected = HuffTree::new_node(
+            HuffTree::new_leaf('d'),
+            HuffTree::new_node(HuffTree::new_leaf('b'), HuffTree::new_leaf('a')),
         );
 
         assert_eq!(expected, tree);
@@ -224,9 +224,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let expected = HuffNode::new_node(
-            HuffNode::new_node(HuffNode::new_leaf('a'), HuffNode::new_leaf('b')),
-            HuffNode::new_node(HuffNode::new_leaf('c'), HuffNode::new_leaf('d')),
+        let expected = HuffTree::new_node(
+            HuffTree::new_node(HuffTree::new_leaf('a'), HuffTree::new_leaf('b')),
+            HuffTree::new_node(HuffTree::new_leaf('c'), HuffTree::new_leaf('d')),
         );
 
         assert_eq!(expected, tree);
@@ -242,7 +242,7 @@ mod tests {
 
         let tree = HuffBuilder::new().add_table(table).build().unwrap();
 
-        let expected = HuffNode::new_node(HuffNode::new_leaf('a'), HuffNode::new_leaf('b'));
+        let expected = HuffTree::new_node(HuffTree::new_leaf('a'), HuffTree::new_leaf('b'));
 
         assert_eq!(expected, tree);
     }
