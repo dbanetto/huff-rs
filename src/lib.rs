@@ -132,7 +132,19 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
     }
 }
 
-struct HuffWriter<V: Eq + Hash, W: Write> {
+impl <V: Eq + Hash, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
+
+    pub fn table<I>(mut self, table: I) -> Self
+    where I: IntoIterator<Item=(V, W)> {
+        for (val, weight) in table {
+            self.nodes.push((val, weight));
+        }
+
+        self
+    }
+}
+
+pub struct HuffWriter<V: Eq + Hash, W: Write> {
     encoding: HashMap<V, Vec<bool>>,
     writer: BitWriter<W, NoPadding>,
 }
@@ -151,6 +163,7 @@ impl <V: Eq + Hash, W: Write> HuffWriter<V, W> {
            Some(bits) => bits, 
            None => { return Err(Error::from(ErrorKind::InvalidInput)); },
         };
+
         for bit in bits {
             self.writer.write_bit(*bit)?;
         }
@@ -205,6 +218,26 @@ mod tests {
     }
 
     #[test]
+    fn build_tree_from_table() {
+        let mut table = HashMap::new();
+        {
+            table.insert('a', 2);
+            table.insert('b', 1);
+        }
+
+        let tree = TreeBuilder::new()
+                .table(table)
+                .build()
+                .unwrap();
+        
+        let expected = TreeNode::new_node(
+                TreeNode::new_leaf('a'),
+                TreeNode::new_leaf('b'));
+
+        assert_eq!(expected, tree);
+    }
+
+    #[test]
     fn encoding_map() {
         let tree = TreeBuilder::<char, u32>::new()
             .add('a', 1)
@@ -241,7 +274,7 @@ mod tests {
                 writer.write(&value).unwrap();
             }
         }
-        
+
         let expected = vec![0b_00011011, 0b_00000000];
 
         assert_eq!(expected, output);
