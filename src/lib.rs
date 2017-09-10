@@ -22,7 +22,7 @@ impl <V: Eq> TreeNode<V> {
             TreeNode::Node(_,_) => None,
         }
     }
-    
+
     fn is_leaf(&self) -> bool {
         match self {
             &TreeNode::Leaf(_) => true,
@@ -70,7 +70,7 @@ impl <V: Eq + Hash> TreeNode<V> {
     }
 }
 
-pub struct TreeBuilder<V: Eq, W: PartialOrd + Add<Output=W>> { 
+pub struct TreeBuilder<V: Eq, W: PartialOrd + Add<Output=W>> {
     nodes: Vec<(V, W)>
 }
 
@@ -90,11 +90,11 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
         use std::cmp::Ordering;
 
         self.nodes.sort_by(|a, b| if b.1 > a.1 {
-            Ordering::Greater    
+            Ordering::Greater
         } else if b.1 < a.1 {
-            Ordering::Less    
+            Ordering::Less
         } else {
-            Ordering::Equal    
+            Ordering::Equal
         });
 
         let mut nodes: Vec<(TreeNode<V>, W)> = self.nodes.into_iter()
@@ -104,18 +104,18 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
         while nodes.len() > 1 {
             let (right_value, right_weight) = nodes.pop().unwrap();
             let (left_value, left_weight) = nodes.pop().unwrap();
-            
+
             let new_weight = left_weight + right_weight;
 
             let node = TreeNode::new_node(left_value, right_value);
 
             let pos = {
                 match nodes.binary_search_by(|a| if new_weight > a.1 {
-                    Ordering::Greater    
+                    Ordering::Greater
                 } else if new_weight < a.1 {
-                    Ordering::Less    
+                    Ordering::Less
                 } else {
-                    Ordering::Equal    
+                    Ordering::Equal
                 }) {
                     Ok(i) => i,
                     Err(i) => i,
@@ -124,7 +124,6 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
             nodes.insert(pos, (node, new_weight));
         }
 
-       
         match nodes.pop() {
             Some((val, _)) => Some(val),
             None => None,
@@ -134,7 +133,7 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
 
 impl <V: Eq + Hash, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
 
-    pub fn table<I>(mut self, table: I) -> Self
+    pub fn add_table<I>(mut self, table: I) -> Self
     where I: IntoIterator<Item=(V, W)> {
         for (val, weight) in table {
             self.nodes.push((val, weight));
@@ -150,7 +149,7 @@ pub struct HuffWriter<V: Eq + Hash, W: Write> {
 }
 
 impl <V: Eq + Hash, W: Write> HuffWriter<V, W> {
-    
+
     pub fn new(tree : TreeNode<V>, writer: W) -> Self {
         HuffWriter {
             encoding: tree.encoding(),
@@ -160,7 +159,7 @@ impl <V: Eq + Hash, W: Write> HuffWriter<V, W> {
 
     pub fn write(&mut self, value: &V) -> std::io::Result<()> {
         let bits: &Vec<bool> = match self.encoding.get(value) {
-           Some(bits) => bits, 
+           Some(bits) => bits,
            None => { return Err(Error::from(ErrorKind::InvalidInput)); },
         };
 
@@ -175,8 +174,7 @@ impl <V: Eq + Hash, W: Write> HuffWriter<V, W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
-    
+
     #[test]
     fn build_simple_tree() {
         let tree = TreeBuilder::<char, u32>::new()
@@ -192,7 +190,6 @@ mod tests {
                 TreeNode::new_leaf('b'),
                 TreeNode::new_leaf('a')));
 
-        
         assert_eq!(expected, tree);
     }
 
@@ -226,10 +223,10 @@ mod tests {
         }
 
         let tree = TreeBuilder::new()
-                .table(table)
+                .add_table(table)
                 .build()
                 .unwrap();
-        
+
         let expected = TreeNode::new_node(
                 TreeNode::new_leaf('a'),
                 TreeNode::new_leaf('b'));
@@ -246,7 +243,7 @@ mod tests {
             .add('d', 1)
             .build()
             .unwrap();
-        
+
         let mut expected = HashMap::new();
         expected.insert('a', vec![false, false]);
         expected.insert('b', vec![false, true]);
@@ -255,7 +252,7 @@ mod tests {
 
         assert_eq!(expected, tree.encoding());
     }
-    
+
     #[test]
     fn encode() {
         let tree = TreeBuilder::<char, u32>::new()
