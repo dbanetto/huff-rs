@@ -14,8 +14,7 @@ pub enum HuffNode<V: Eq + Copy> {
     Node(Box<HuffNode<V>>, Box<HuffNode<V>>),
 }
 
-impl <V: Eq + Copy> HuffNode<V> {
-
+impl<V: Eq + Copy> HuffNode<V> {
     pub fn new_leaf(value: V) -> Self {
         HuffNode::Leaf(value)
     }
@@ -23,11 +22,9 @@ impl <V: Eq + Copy> HuffNode<V> {
     pub fn new_node(left: Self, right: Self) -> Self {
         HuffNode::Node(Box::new(left), Box::new(right))
     }
-
 }
 
-impl <V: Eq + Copy + Hash> HuffNode<V> {
-
+impl<V: Eq + Copy + Hash> HuffNode<V> {
     pub fn encoding(self) -> HashMap<V, Vec<bool>> {
         let trail: Vec<bool> = vec![];
         let mut map = HashMap::new();
@@ -37,11 +34,11 @@ impl <V: Eq + Copy + Hash> HuffNode<V> {
         map
     }
 
-    fn build_map(self, trail: Vec<bool>, map :&mut HashMap<V, Vec<bool>>) {
+    fn build_map(self, trail: Vec<bool>, map: &mut HashMap<V, Vec<bool>>) {
         match self {
             HuffNode::Leaf(v) => {
                 map.insert(v, trail.clone());
-            },
+            }
             HuffNode::Node(l, r) => {
 
                 //handle left
@@ -53,20 +50,18 @@ impl <V: Eq + Copy + Hash> HuffNode<V> {
                 let mut right = trail.clone();
                 right.push(true);
                 r.build_map(right, map);
-            },
+            }
         }
     }
 }
 
-pub struct HuffBuilder<V: Eq + Copy, W: PartialOrd + Add<Output=W>> {
-    nodes: Vec<(V, W)>
+pub struct HuffBuilder<V: Eq + Copy, W: PartialOrd + Add<Output = W>> {
+    nodes: Vec<(V, W)>,
 }
 
-impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
+impl<V: Eq + Copy, W: PartialOrd + Add<Output = W>> HuffBuilder<V, W> {
     pub fn new() -> Self {
-        HuffBuilder {
-            nodes: vec![],
-        }
+        HuffBuilder { nodes: vec![] }
     }
 
     pub fn add(mut self, sym: V, weight: W) -> Self {
@@ -85,8 +80,10 @@ impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
             Ordering::Equal
         });
 
-        let mut nodes: Vec<(HuffNode<V>, W)> = self.nodes.into_iter()
-            .map(|(v, w)| (HuffNode::new_leaf(v), w)).collect();
+        let mut nodes: Vec<(HuffNode<V>, W)> = self.nodes
+            .into_iter()
+            .map(|(v, w)| (HuffNode::new_leaf(v), w))
+            .collect();
 
 
         while nodes.len() > 1 {
@@ -119,10 +116,11 @@ impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
     }
 }
 
-impl <V: Eq + Copy + Hash, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
-
+impl<V: Eq + Copy + Hash, W: PartialOrd + Add<Output = W>> HuffBuilder<V, W> {
     pub fn add_table<I>(mut self, table: I) -> Self
-    where I: IntoIterator<Item=(V, W)> {
+    where
+        I: IntoIterator<Item = (V, W)>,
+    {
         for (val, weight) in table {
             self.nodes.push((val, weight));
         }
@@ -136,9 +134,8 @@ pub struct HuffWriter<V: Eq + Copy + Hash, W: Write> {
     writer: BitWriter<W, NoPadding>,
 }
 
-impl <V: Eq + Copy + Hash, W: Write> HuffWriter<V, W> {
-
-    pub fn new(tree : HuffNode<V>, writer: W) -> Self {
+impl<V: Eq + Copy + Hash, W: Write> HuffWriter<V, W> {
+    pub fn new(tree: HuffNode<V>, writer: W) -> Self {
         HuffWriter {
             encoding: tree.encoding(),
             writer: BitWriter::new(writer),
@@ -147,8 +144,10 @@ impl <V: Eq + Copy + Hash, W: Write> HuffWriter<V, W> {
 
     pub fn write(&mut self, value: &V) -> std::io::Result<()> {
         let bits: &Vec<bool> = match self.encoding.get(value) {
-           Some(bits) => bits,
-           None => { return Err(Error::from(ErrorKind::InvalidInput)); },
+            Some(bits) => bits,
+            None => {
+                return Err(Error::from(ErrorKind::InvalidInput));
+            }
         };
 
         for bit in bits {
@@ -164,8 +163,7 @@ pub struct HuffReader<V: Eq + Copy, R: Read> {
     reader: BitReader<R, NoPadding>,
 }
 
-impl <V: Eq + Copy, R: Read> HuffReader<V, R> {
-
+impl<V: Eq + Copy, R: Read> HuffReader<V, R> {
     pub fn new(tree: HuffNode<V>, reader: R) -> Self {
         HuffReader {
             tree: Box::new(tree),
@@ -184,15 +182,11 @@ impl <V: Eq + Copy, R: Read> HuffReader<V, R> {
                     let bit = self.reader.read_bit()?;
                     match bit {
                         Some(b) => {
-                            if b {
-                                cursor = r;
-                            } else {
-                                cursor = l;
-                            };
-                        },
+                            cursor = if b { r } else { l };
+                        }
                         None => return Err(Error::from(ErrorKind::UnexpectedEof)),
                     }
-                },
+                }
             };
         }
     }
@@ -201,6 +195,7 @@ impl <V: Eq + Copy, R: Read> HuffReader<V, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn build_simple_tree() {
@@ -213,9 +208,8 @@ mod tests {
 
         let expected = HuffNode::new_node(
             HuffNode::new_leaf('d'),
-            HuffNode::new_node(
-                HuffNode::new_leaf('b'),
-                HuffNode::new_leaf('a')));
+            HuffNode::new_node(HuffNode::new_leaf('b'), HuffNode::new_leaf('a')),
+        );
 
         assert_eq!(expected, tree);
     }
@@ -231,12 +225,9 @@ mod tests {
             .unwrap();
 
         let expected = HuffNode::new_node(
-            HuffNode::new_node(
-                HuffNode::new_leaf('a'),
-                HuffNode::new_leaf('b')),
-            HuffNode::new_node(
-                HuffNode::new_leaf('c'),
-                HuffNode::new_leaf('d')));
+            HuffNode::new_node(HuffNode::new_leaf('a'), HuffNode::new_leaf('b')),
+            HuffNode::new_node(HuffNode::new_leaf('c'), HuffNode::new_leaf('d')),
+        );
 
         assert_eq!(expected, tree);
     }
@@ -249,14 +240,9 @@ mod tests {
             table.insert('b', 1);
         }
 
-        let tree = HuffBuilder::new()
-                .add_table(table)
-                .build()
-                .unwrap();
+        let tree = HuffBuilder::new().add_table(table).build().unwrap();
 
-        let expected = HuffNode::new_node(
-                HuffNode::new_leaf('a'),
-                HuffNode::new_leaf('b'));
+        let expected = HuffNode::new_node(HuffNode::new_leaf('a'), HuffNode::new_leaf('b'));
 
         assert_eq!(expected, tree);
     }
@@ -306,10 +292,7 @@ mod tests {
 
     #[test]
     fn encode_value_error() {
-        let tree = HuffBuilder::<char, u32>::new()
-            .add('a', 1)
-            .build()
-            .unwrap();
+        let tree = HuffBuilder::<char, u32>::new().add('a', 1).build().unwrap();
 
         let mut output: Vec<u8> = vec![];
         {
@@ -324,7 +307,6 @@ mod tests {
         }
     }
 
-    use std::io::Cursor;
 
     #[test]
     fn decode() {
@@ -342,8 +324,8 @@ mod tests {
         let mut reader = HuffReader::new(tree, Cursor::new(input));
         let mut output = vec![];
 
-        for _ in 0 .. 5 {
-           output.push(reader.read().unwrap());
+        for _ in 0..5 {
+            output.push(reader.read().unwrap());
         }
 
         assert_eq!(vec!['a', 'b', 'c', 'd', 'a'], output);
