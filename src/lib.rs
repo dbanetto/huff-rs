@@ -1,17 +1,6 @@
-use std::ops::{Deref, Add};
-use std::fmt::Debug;
+use std::ops::Add;
 use std::collections::HashMap;
 use std::hash::Hash;
-
-/// Encodes a given string with a given string
-pub fn encode(input: &str, symbols :String) -> String  {
-    return input.to_owned();
-}
-
-/// Decodes the given input with the given tree
-pub fn decode(input: &str, symbols :String) -> String  {
-    return input.to_owned();
-}
 
 #[derive(Debug, PartialEq, Eq)]
 enum TreeNode<V: Eq> {
@@ -32,20 +21,6 @@ impl <V: Eq> TreeNode<V> {
         match self {
             &TreeNode::Leaf(_) => true,
             &TreeNode::Node(_,_) => false,
-        }
-    }
-
-    fn left(&self) -> Option<&TreeNode<V>> {
-        match self {
-            &TreeNode::Leaf(_) => None,
-            &TreeNode::Node(ref l,_) => Some(l.deref()),
-        }
-    }
-
-    fn right(&self) -> Option<&TreeNode<V>> {
-        match self {
-            &TreeNode::Leaf(_) => None,
-            &TreeNode::Node(_,ref r) => Some(r.deref()),
         }
     }
 
@@ -156,20 +131,6 @@ impl <V: Eq, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn encode_message() {
-        let message = "Hello World".to_owned();
-        let key = "aabbcc".to_owned();
-        assert_eq!(message, encode(&message, key));
-    }
-
-    #[test]
-    fn decode_message() {
-        let message = "Hello World".to_owned();
-        let key = "aabbcc".to_owned();
-        assert_eq!(message, decode(&message, key));
-    }
     
     #[test]
     fn build_simple_tree() {
