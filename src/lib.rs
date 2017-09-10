@@ -58,13 +58,13 @@ impl <V: Eq + Copy + Hash> HuffNode<V> {
     }
 }
 
-pub struct TreeBuilder<V: Eq + Copy, W: PartialOrd + Add<Output=W>> {
+pub struct HuffBuilder<V: Eq + Copy, W: PartialOrd + Add<Output=W>> {
     nodes: Vec<(V, W)>
 }
 
-impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
+impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
     pub fn new() -> Self {
-        TreeBuilder {
+        HuffBuilder {
             nodes: vec![],
         }
     }
@@ -119,7 +119,7 @@ impl <V: Eq + Copy, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
     }
 }
 
-impl <V: Eq + Copy + Hash, W: PartialOrd + Add<Output=W>> TreeBuilder<V, W> {
+impl <V: Eq + Copy + Hash, W: PartialOrd + Add<Output=W>> HuffBuilder<V, W> {
 
     pub fn add_table<I>(mut self, table: I) -> Self
     where I: IntoIterator<Item=(V, W)> {
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn build_simple_tree() {
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 2)
             .add('d', 10)
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn build_flat_tree() {
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 1)
             .add('c', 1)
@@ -249,7 +249,7 @@ mod tests {
             table.insert('b', 1);
         }
 
-        let tree = TreeBuilder::new()
+        let tree = HuffBuilder::new()
                 .add_table(table)
                 .build()
                 .unwrap();
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn encoding_map() {
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 1)
             .add('c', 1)
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn encode() {
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 1)
             .add('c', 1)
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn encode_value_error() {
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .build()
             .unwrap();
@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn decode() {
 
-        let tree = TreeBuilder::<char, u32>::new()
+        let tree = HuffBuilder::<char, u32>::new()
             .add('a', 1)
             .add('b', 1)
             .add('c', 1)
